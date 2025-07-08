@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integrated Cyber Security Dashboard</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsencrypt/3.3.2/jsencrypt.min.js"></script>
+
+    <style>
+        /* Base styles for a unified dark theme */
+        body { 
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* bg-gray-900 */
+            color: #d1d5db; /* text-gray-300 */
+        }
+
+        /* --- Layout & Navigation --- */
+        .page-container { display: none; }
+        .page-container.active { display: block; }
+
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+            font-weight: 500;
+            color: #d1d5db; /* text-gray-300 */
+        }
+        .sidebar-link:hover {
+            background-color: #374151; /* bg-gray-700 */
+            color: #ffffff;
+        }
+        .sidebar-link.active {
+            background-color: #ef4444; /* bg-red-500 */
+            color: #ffffff;
+            font-weight: 600;
+        }
+        .sidebar-link i.fa-solid {
+            width: 1.25rem;
+            text-align: center;
+        }
+
+        /* --- Threat Scanner Specific Styles --- */
+        #results::-webkit-scrollbar { width: 8px; }
+        #results::-webkit-scrollbar-track { background: #111827; }
+        #results::-webkit-scrollbar-thumb { background-color: #374151; border-radius: 4px; border: 2px solid #111827; }
+        
+        .blinking-cursor { font-weight: bold; animation: blink 1s step-end infinite; }
+        @keyframes blink { from, to { color: transparent } 50% { color: #ef4444; } }
+
+        /* --- Toolkit Component Styles (Adapted for Dark Theme) --- */
+        .st-subheader {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #f3f4f6; /* text-gray-100 */
+            border-bottom: 2px solid #374151; /* border-gray-700 */
+            padding-bottom: 0.5rem;
+            margin-top: 2rem;
+            margin-bottom: 1.5rem;
+        }
+        .st-markdown {
+            color: #9ca3af; /* text-gray-400 */
+            margin-bottom: 1rem;
+        }
+        .st-button {
+            background-color: #dc2626; /* bg-red-600 */
+            color: white;
+            font-weight: 600;
+            padding: 0.65rem 1.25rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .st-button:hover:not(:disabled) { background-color: #b91c1c; /* bg-red-700 */ }
+        .st-button:disabled { background-color: #4b5563; cursor: not-allowed; }
+        
+        .st-textarea, .st-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #4b5563; /* border-gray-600 */
+            border-radius: 0.5rem;
+            background-color: #1f2937; /* bg-gray-800 */
+            color: #d1d5db; /* text-gray-300 */
+            resize: vertical;
+        }
+        .st-textarea::placeholder, .st-input::placeholder { color: #6b7280; }
+        
+        .st-code {
+            background-color: #000;
+            color: #e5e7eb;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+            border: 1px solid #374151;
+        }
+        
+        /* Status message styles */
+        .st-success, .st-warning, .st-error {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            margin-top: 1rem;
+        }
+        .st-success { color: #a7f3d0; background-color: #064e3b; }
+        .st-warning { color: #fde68a; background-color: #854d0e; }
+        .st-error { color: #fecaca; background-color: #991b1b; }
+        
+        .st-file-uploader {
+            border: 2px dashed #4b5563;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            background-color: #1f2937;
+            color: #9ca3af;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        .st-file-uploader.dragover {
+             background-color: #374151; /* bg-gray-700 */
+             border-color: #ef4444; /* border-red-500 */
+        }
+        .st-file-uploader input[type="file"] { display: none; }
+    </style>
+</head>
+<body class="flex min-h-screen">
+
+    <aside class="w-64 bg-gray-900 p-4 flex-flex-col gap-4 border-r border-gray-700">
+        <div class="flex items-center gap-3 p-2 mb-6">
+            <i class="ph-duotone ph-shield-check text-4xl text-red-400"></i>
+            <div>
+                <h1 class="text-xl font-bold text-white">Cyber Suite</h1>
+                <p class="text-xs text-gray-400">Dashboard & Toolkit</p>
+            </div>
+        </div>
+        <nav class="flex flex-col gap-2">
+            <a class="sidebar-link active" data-target="threat-detection-page"><i class="ph ph-shield-warning"></i> Threat Detection</a>
+            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-4 px-2">Toolkit</h3>
+            <a class="sidebar-link" data-target="hash-tool-page"><i class="fa-solid fa-hashtag"></i> Hash Generator</a>
+            <a class="sidebar-link" data-target="crypto-tool-page"><i class="fa-solid fa-key"></i> Cryptography</a>
+            <a class="sidebar-link" data-target="password-generator-page"><i class="fa-solid fa-wand-magic-sparkles"></i> Password Generator</a>
+            <a class="sidebar-link" data-target="password-checker-page"><i class="fa-solid fa-shield-halved"></i> Password Checker</a>
+            <a class="sidebar-link" data-target="steganography-page"><i class="fa-solid fa-eye-slash"></i> Steganography</a>
+        </nav>
+    </aside>
+
+    <main class="flex-1 p-6 overflow-y-auto">
+
+        <div id="threat-detection-page" class="page-container active">
+            <div class="w-full max-w-7xl mx-auto">
+                <header class="p-4 flex items-center gap-3 mb-6">
+                    <i class="ph-duotone ph-shield-warning text-3xl text-red-400"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">AI-Driven Threat Detection & Analysis</h1>
+                        <p class="text-gray-400">Correlating vulnerabilities with behavioral anomalies and threat intelligence.</p>
+                    </div>
+                </header>
+        
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-1 flex flex-col gap-6">
+                        <section id="scanner">
+                            <h2 class="text-lg font-semibold mb-3 text-gray-200">Target Network</h2>
+                            <div class="flex flex-col gap-4">
+                                <input type="text" id="ip-address" value="192.168.1.0/24" class="flex-grow bg-gray-800 border border-gray-600 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-200">
+                                 <input type="email" id="recipient-email" placeholder="Email for alerts (e.g., admin@example.com)" class="flex-grow bg-gray-800 border border-gray-600 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-200">
+                                <button id="scanButton" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-md transition duration-300 ease-in-out transform hover:scale-105 disabled:bg-gray-500 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2">
+                                    <i class="ph ph-target"></i>
+                                    Initiate Deep Scan
+                                </button>
+                            </div>
+                        </section>
+                        <section id="summary-section" class="bg-gray-800 p-4 rounded-lg border border-gray-700 hidden">
+                            <h2 class="text-lg font-semibold mb-3 text-gray-200 border-b border-gray-600 pb-2">Executive Summary</h2>
+                            <div id="summary-content" class="text-sm space-y-3"></div>
+                        </section>
+                    </div>
+        
+                    <section id="results-section" class="lg:col-span-2">
+                        <h2 class="text-lg font-semibold mb-3 text-gray-200">Live Analysis Log</h2>
+                        <div class="bg-gray-900 rounded-md p-4 h-[42rem] overflow-y-auto font-mono text-xs border border-gray-700" id="results-container">
+                            <pre id="results" class="whitespace-pre-wrap"></pre>
+                            <span id="cursor" class="blinking-cursor hidden">_</span>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <div id="hash-tool-page" class="page-container">
+             <div id="hash-tool">
+                <h2 class="st-subheader">🔐 Hash Generator</h2>
+                <p class="st-markdown">Generate a cryptographic hash for any text or file using <em>MD5, SHA1, or SHA256</em>.</p>
+                <div class="space-y-4 max-w-xl">
+                    <div>
+                        <label class="font-semibold text-gray-200">Hashing Algorithm</label>
+                        <select id="hash-algo" class="w-full mt-1 p-2 bg-gray-800 border border-gray-600 rounded-lg">
+                            <option>MD5</option>
+                            <option>SHA1</option>
+                            <option>SHA256</option>
+                        </select>
+                    </div>
+                    <div class="st-radio-group">
+                        <input type="radio" id="hash-text-radio" name="hash-input-type" value="text" checked> <label for="hash-text-radio">Text</label>
+                        <input type="radio" id="hash-file-radio" name="hash-input-type" value="file"> <label for="hash-file-radio">File</label>
+                    </div>
+                    <div id="hash-text-input-div">
+                        <textarea id="hash-text-input" class="st-textarea font-mono" rows="4" placeholder="Enter Text:"></textarea>
+                    </div>
+                    <div id="hash-file-input-div" class="hidden">
+                        <input type="file" id="hash-file-input" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-red-600 file:text-white hover:file:bg-red-700">
+                    </div>
+                    <button id="generate-hash-btn" class="st-button">Generate Hash</button>
+                    <div id="hash-output" class="st-code hidden"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="crypto-tool-page" class="page-container">
+             <div id="crypto-tool">
+                <h2 class="st-subheader">🔑 Asymmetric Cryptography (RSA)</h2>
+                <p class="st-markdown">Generate RSA key pairs to encrypt and decrypt messages.</p>
+                <h3 class="text-lg font-semibold text-gray-200 mt-6">1. Generate Key Pair</h3>
+                <button id="generate-keys-btn" class="st-button mt-2">
+                    <i class="fas fa-magic"></i> Generate New 2048-bit RSA Keys
+                </button>
+                <div id="generation-success" class="st-success hidden mt-4">New key pair generated successfully! Your new keys have been pre-filled below.</div>
+                <div id="key-display" class="hidden mt-6 space-y-6">
+                    <div>
+                        <h4 class="font-semibold mb-2">Public Key</h4>
+                        <textarea id="public-key-area" class="st-textarea" rows="8" readonly placeholder="Public Key"></textarea>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold mb-2">Private Key</h4>
+                        <textarea id="private-key-area" class="st-textarea" rows="12" readonly placeholder="Private Key"></textarea>
+                    </div>
+                </div>
+                
+                <hr class="my-8 border-gray-700">
+                
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-200">2. Encrypt Message</h3>
+                        <div class="space-y-4 mt-2">
+                            <textarea id="enc-pub-key" class="st-textarea" rows="6" placeholder="Paste Public Key Here"></textarea>
+                            <textarea id="msg-to-enc" class="st-textarea" rows="4" placeholder="Message to Encrypt"></textarea>
+                            <button id="encrypt-btn" class="st-button">Encrypt</button>
+                            <textarea id="encrypted-output" class="st-textarea" rows="5" placeholder="Encrypted Message (Base64)" readonly></textarea>
+                            <div id="encrypt-error" class="st-error hidden"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-200">3. Decrypt Message</h3>
+                        <div class="space-y-4 mt-2">
+                            <textarea id="dec-priv-key" class="st-textarea" rows="6" placeholder="Paste Private Key Here"></textarea>
+                            <textarea id="msg-to-dec" class="st-textarea" rows="4" placeholder="Encrypted Message (Base64)"></textarea>
+                            <button id="decrypt-btn" class="st-button">Decrypt</button>
+                            <textarea id="decrypted-output" class="st-textarea" rows="5" placeholder="Decrypted Message" readonly></textarea>
+                            <div id="decrypt-success" class="st-success hidden"></div>
+                            <div id="decrypt-error" class="st-error hidden"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="password-generator-page" class="page-container">
+            <div id="password-generator-tool">
+                <h2 class="st-subheader">🔐 Secure Password Generator</h2>
+                <div class="space-y-4 max-w-md">
+                    <div>
+                        <label for="pass-length" class="font-semibold">Password Length: <span id="pass-length-val" class="text-red-400 font-bold">16</span></label>
+                        <input type="range" id="pass-length" min="8" max="32" value="16" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 pt-4">
+                        <label class="flex items-center space-x-3"><input type="checkbox" id="use-upper" checked class="h-4 w-4 rounded bg-gray-700 border-gray-600 text-red-600 focus:ring-red-500"> <span>Uppercase (A-Z)</span></label>
+                        <label class="flex items-center space-x-3"><input type="checkbox" id="use-lower" checked class="h-4 w-4 rounded bg-gray-700 border-gray-600 text-red-600 focus:ring-red-500"> <span>Lowercase (a-z)</span></label>
+                        <label class="flex items-center space-x-3"><input type="checkbox" id="use-digits" checked class="h-4 w-4 rounded bg-gray-700 border-gray-600 text-red-600 focus:ring-red-500"> <span>Numbers (0-9)</span></label>
+                        <label class="flex items-center space-x-3"><input type="checkbox" id="use-symbols" checked class="h-4 w-4 rounded bg-gray-700 border-gray-600 text-red-600 focus:ring-red-500"> <span>Symbols (!@#$)</span></label>
+                    </div>
+                    <button id="generate-pass-btn" class="st-button w-full justify-center">Generate Password</button>
+                    <div id="pass-output-container" class="hidden pt-4">
+                        <div class="st-success text-center">🎉 Your New Secure Password:</div>
+                        <div id="pass-output" class="st-code text-center mt-2 text-lg"></div>
+                    </div>
+                    <div id="pass-warning" class="st-warning hidden"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="password-checker-page" class="page-container">
+            <div id="password-checker-tool">
+                <h2 class="st-subheader">🔍 Password Strength Checker</h2>
+                <p class="st-markdown">Analyze the strength of a password based on common criteria. (Does not check against breach databases).</p>
+                <div class="space-y-4 max-w-md">
+                    <input type="password" id="password-to-check" class="st-input" placeholder="Enter password to check...">
+                    <div id="strength-results" class="hidden space-y-3 pt-4">
+                        <h3 id="strength-text" class="font-bold text-xl text-center"></h3>
+                        <div id="strength-suggestions" class="p-4 bg-gray-800 rounded-lg space-y-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="steganography-page" class="page-container">
+            <div id="steganography-tool">
+                <h2 class="st-subheader">🕵️‍♀️ Steganography Tool</h2>
+                <p class="st-markdown">Hide a secret message inside a PNG image or reveal a message from an image.</p>
+                
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div id="stego-hide-section" class="space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-200">1. Hide Message</h3>
+                        <canvas id="hide-canvas" class="hidden"></canvas>
+                        <label for="hide-file-input" id="hide-file-uploader" class="st-file-uploader block">
+                           <i class="ph ph-upload text-3xl mb-2"></i>
+                           <div>Click or drag to upload a PNG Image</div>
+                           <input type="file" id="hide-file-input" accept="image/png">
+                        </label>
+                        <textarea id="secret-message-input" class="st-textarea" placeholder="Enter your secret message here..." rows="4"></textarea>
+                        <button id="hide-message-btn" class="st-button" disabled>🔐 Hide Message & Download</button>
+                        <div id="hide-error" class="st-error hidden"></div>
+                    </div>
+                    <div id="stego-reveal-section" class="space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-200">2. Reveal Message</h3>
+                         <canvas id="reveal-canvas" class="hidden"></canvas>
+                        <label for="reveal-file-input" id="reveal-file-uploader" class="st-file-uploader block">
+                             <i class="ph ph-file-search text-3xl mb-2"></i>
+                             <div>Click or drag to upload a Stego Image</div>
+                             <input type="file" id="reveal-file-input" accept="image/png">
+                        </label>
+                        <button id="reveal-message-btn" class="st-button" disabled>🔍 Reveal Message</button>
+                        <div id="reveal-success" class="st-success hidden"></div>
+                        <div id="reveal-warning" class="st-warning hidden"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+    
+        // --- Unified Page Navigation Logic ---
+        const sidebarLinks = document.querySelectorAll('.sidebar-link');
+        const pageContainers = document.querySelectorAll('.page-container');
+
+        sidebarLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = link.getAttribute('data-target');
+
+                // Update active link
+                sidebarLinks.forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+
+                // Update active page
+                pageContainers.forEach(container => {
+                    if (container.id === targetId) {
+                        container.classList.add('active');
+                    } else {
+                        container.classList.remove('active');
+                    }
+                });
+            });
+        });
+
+        // --- SCRIPT FOR PAGE 1: THREAT DETECTOR ---
+        const scanButton = document.getElementById('scanButton');
+        const ipAddressInput = document.getElementById('ip-address');
+        const resultsDiv = document.getElementById('results');
+        const cursor = document.getElementById('cursor');
+        const summarySection = document.getElementById('summary-section');
+        const summaryContent = document.getElementById('summary-content');
+        // ADDED: Get recipient email input
+        const recipientEmailInput = document.getElementById('recipient-email');
+
+
+        if(scanButton) {
+            scanButton.addEventListener('click', startScan);
+            ipAddressInput.addEventListener('keypress', (e) => e.key === 'Enter' && startScan());
+        }
+
+        function startScan() {
+            const networkRange = ipAddressInput.value.trim();
+            const email = recipientEmailInput.value.trim();
+
+            const cidrRegex = /^([0-9]{1,3}\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))$/;
+            if (!cidrRegex.test(networkRange)) {
+                resultsDiv.innerHTML = `<span class="text-red-500">Error: Invalid CIDR notation. Please use format like 192.168.1.0/24.</span>`;
+                return;
+            }
+            // Basic email validation
+            if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+                 resultsDiv.innerHTML = `<span class="text-red-500">Error: Please enter a valid email address for alerts.</span>`;
+                 return;
+            }
+
+            resultsDiv.textContent = '';
+            scanButton.disabled = true;
+            scanButton.innerHTML = '<i class="ph ph-spinner-gap animate-spin"></i> Analyzing...';
+            cursor.classList.remove('hidden');
+            summarySection.classList.add('hidden');
+            simulateSystemScan(networkRange);
+        }
+
+        async function simulateSystemScan(networkRange) {
+            const resultsContainer = document.getElementById('results-container');
+            let totalRiskScore = 0;
+            let criticalThreatsCount = 0;
+            
+            const addLine = (text, delay = 50) => {
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        const line = document.createElement('div');
+                        line.innerHTML = text;
+                        resultsDiv.appendChild(line);
+                        resultsContainer.scrollTop = resultsContainer.scrollHeight;
+                        resolve();
+                    }, Math.random() * delay + 10);
+                });
+            };
+
+            await addLine(`<span class="text-cyan-400">> AI Engine Initialized. Target: ${networkRange}</span>`);
+            await addLine(`<span class="text-gray-500">> Phase 1: Host Discovery using ARP & ICMP sweeps...</span>`, 1000);
+            
+            const baseIp = networkRange.split('/')[0].split('.').slice(0, 3).join('.');
+            const discoveredHosts = Array.from({length: Math.floor(Math.random() * 3) + 3}, () => ({ip: `${baseIp}.${Math.floor(Math.random() * 254) + 1}`, riskScore: 0, criticalThreats: 0}));
+
+            await addLine(`<span class="text-green-400">> Discovery Complete. Found ${discoveredHosts.length} active hosts.</span>`);
+
+            for (const host of discoveredHosts) {
+                await addLine(`\n<span class="text-cyan-400">--- Analyzing Host: ${host.ip} ---</span>`);
+                const { hostRisk, criticalCount } = await analyzeHost(host, addLine);
+                host.riskScore = hostRisk;
+                host.criticalThreats = criticalCount;
+                totalRiskScore += hostRisk;
+                criticalThreatsCount += criticalCount;
+            }
+
+            await addLine(`\n<span class="text-cyan-400">> System-wide analysis complete. Generating executive summary...</span>`);
+            const summaryObject = generateSummary(discoveredHosts, totalRiskScore, criticalThreatsCount);
+
+            // MODIFIED: Call the alert function after the scan is complete
+            if (recipientEmailInput.value.trim()) {
+                await addLine(`\n<span class="text-blue-400">> Sending alerts...</span>`);
+                await sendAlertsToServer(summaryObject);
+            }
+
+
+            scanButton.disabled = false;
+            scanButton.innerHTML = '<i class="ph ph-target"></i> Initiate Deep Scan';
+            cursor.classList.add('hidden');
+        }
+
+        async function analyzeHost(host, addLine) {
+            let hostRisk = 0;
+            let criticalCount = 0;
+            const vulnerabilityDB = [
+                { port: 23, service: 'Telnet', severity: 'Critical', threat: "Cleartext login protocol.", intel: "Actively exploited by Mirai botnet variants.", advice: "Disable Telnet, use SSH.", risk: 25 },
+                { port: 445, service: 'SMB', severity: 'Critical', threat: "Exposed file sharing service.", intel: "Primary vector for ransomware like WannaCry/NotPetya.", advice: "Firewall from internet. Patch against EternalBlue.", risk: 30 },
+                { port: 3389, service: 'RDP', severity: 'Critical', threat: "Exposed Remote Desktop.", intel: "High-value target for brute-force and credential theft.", advice: "Use VPN/MFA. Enable NLA.", risk: 25 },
+                { port: 21, service: 'FTP', severity: 'High', threat: "Anonymous FTP enabled.", intel: "Often used for malware staging.", advice: "Disable anonymous login. Use SFTP.", risk: 15 },
+                { port: 5900, service: 'VNC', severity: 'High', threat: "Unencrypted remote desktop.", intel: "Susceptible to session hijacking.", advice: "Tunnel over SSH or use secure alternative.", risk: 15 },
+                { port: 8080, service: 'Proxy', severity: 'Medium', threat: "Open HTTP proxy.", intel: "Can be abused for outbound attacks.", advice: "Restrict access to authorized users.", risk: 10 }
+            ];
+            const behavioralIOCs = [
+                { name: "Unusual Outbound Traffic", intel: "Host communicating with known C2 server in North Korea.", risk: 40, severity: 'Critical' },
+                { name: "Multiple Failed Logins", intel: "Brute-force attempt detected from multiple IPs.", risk: 20, severity: 'High' },
+                { name: "Powershell Execution without Arguments", intel: "Common technique for fileless malware.", risk: 25, severity: 'High' },
+                { name: "Data Exfiltration Pattern Detected", intel: "Large volume of compressed data sent to an unknown external IP.", risk: 50, severity: 'Critical' }
+            ];
+            
+            await addLine(`<span class="text-gray-500">> Phase 2.1: Vulnerability Scanning for ${host.ip}...</span>`);
+            for (const vuln of vulnerabilityDB) {
+                if (Math.random() > 0.75) {
+                    const sevColor = { 'Critical': 'text-red-500', 'High': 'text-yellow-400', 'Medium': 'text-blue-400' }[vuln.severity];
+                    await addLine(`<span class="${sevColor}">[VULN]</span> Port ${vuln.port} (${vuln.service}) - <span class="font-bold">${vuln.severity}</span>`);
+                    await addLine(`  <span class="text-gray-400">└─ <i class="ph-fill ph-warning-diamond text-yellow-500"></i> <span class="font-semibold">Threat:</span> ${vuln.threat}</span>`);
+                    await addLine(`  <span class="text-gray-400">└─ <i class="ph-fill ph-radioactive text-red-500"></i> <span class="font-semibold">Intel:</span> ${vuln.intel}</span>`);
+                    await addLine(`  <span class="text-gray-400">└─ <i class="ph-fill ph-lifebuoy text-green-500"></i> <span class="font-semibold">Advice:</span> ${vuln.advice}</span>`);
+                    hostRisk += vuln.risk;
+                    if(vuln.severity === 'Critical') criticalCount++;
+                }
+            }
+
+            await addLine(`<span class="text-gray-500">> Phase 2.2: Behavioral Anomaly Detection for ${host.ip}...</span>`);
+             for (const ioc of behavioralIOCs) {
+                if (Math.random() > 0.85) {
+                    const sevColor = { 'Critical': 'text-red-500', 'High': 'text-yellow-400' }[ioc.severity];
+                    await addLine(`<span class="${sevColor}">[BEHAVIOR]</span> ${ioc.name} - <span class="font-bold">${ioc.severity}</span>`);
+                    await addLine(`  <span class="text-gray-400">└─ <i class="ph-fill ph-radioactive text-red-500"></i> <span class="font-semibold">Intel:</span> ${ioc.intel}</span>`);
+                    hostRisk += ioc.risk;
+                    if(ioc.severity === 'Critical') criticalCount++;
+                }
+            }
+            
+            const riskColor = hostRisk > 50 ? 'bg-red-900 text-red-300' : hostRisk > 20 ? 'bg-yellow-900 text-yellow-300' : 'bg-green-900 text-green-300';
+            await addLine(`<span class="px-2 py-1 rounded ${riskColor}">Host Risk Score for ${host.ip}: ${hostRisk}</span>`);
+            return { hostRisk, criticalCount };
+        }
+
+        function generateSummary(hosts, totalRisk, criticalThreats) {
+            summarySection.classList.remove('hidden');
+            let posture, postureColor;
+            const avgRisk = hosts.length > 0 ? totalRisk / hosts.length : 0;
+            if (avgRisk > 40 || criticalThreats > 2) { posture = "COMPROMISED"; postureColor = "text-red-500"; } 
+            else if (avgRisk > 15 || criticalThreats > 0) { posture = "AT RISK"; postureColor = "text-yellow-400"; }
+            else { posture = "SECURE"; postureColor = "text-green-400"; }
+            
+            const summaryObject = {
+                hostsScanned: hosts.length,
+                criticalThreats: criticalThreats,
+                averageRisk: avgRisk.toFixed(0),
+                networkPosture: posture,
+                priorityTargets: hosts.sort((a, b) => b.riskScore - a.riskScore).slice(0, 3).map(h => ({ip: h.ip, risk: h.riskScore}))
+            };
+
+            let summaryHTML = `
+                <div class="flex justify-between items-center"><span>Hosts Scanned:</span> <span class="font-bold">${summaryObject.hostsScanned}</span></div>
+                <div class="flex justify-between items-center"><span>Critical Threats:</span> <span class="font-bold text-red-500">${summaryObject.criticalThreats}</span></div>
+                <div class="flex justify-between items-center"><span>Avg. Host Risk:</span> <span class="font-bold">${summaryObject.averageRisk}</span></div>
+                <div class="mt-4 pt-2 border-t border-gray-700">
+                    <div class="flex justify-between items-center"><span>Network Posture:</span> <span class="font-bold ${postureColor}">${summaryObject.networkPosture}</span></div>
+                </div>
+                <h3 class="font-semibold mt-4 text-gray-300">Priority Targets:</h3>
+                <ul class="list-none space-y-1 mt-1">`;
+            summaryObject.priorityTargets.forEach(h => {
+                 const riskColor = h.risk > 50 ? 'text-red-400' : h.risk > 20 ? 'text-yellow-400' : 'text-green-400';
+                summaryHTML += `<li class="flex justify-between items-center"><span><i class="ph ph-desktop-tower"></i> ${h.ip}</span> <span class="font-bold ${riskColor}">Risk: ${h.risk}</span></li>`;
+            });
+            summaryHTML += '</ul>';
+            summaryContent.innerHTML = summaryHTML;
+
+            return summaryObject;
+        }
+
+        // --- NEW ---
+        // This function sends the scan results to your backend server.
+        async function sendAlertsToServer(summary) {
+            // This is the URL where your backend server is running.
+            // You MUST replace this with your actual server URL.
+            const backendUrl = 'http://localhost:3000/send-alert'; // Example: 'https://your-backend.onrender.com/send-alert'
+
+            const summaryText = `
+                Scan Complete
+                - Network Posture: ${summary.networkPosture}
+                - Critical Threats: ${summary.criticalThreats}
+                - Average Host Risk: ${summary.averageRisk}
+                - Priority Targets: ${summary.priorityTargets.map(p => `${p.ip} (Risk: ${p.risk})`).join(', ')}
+            `;
+
+            try {
+                const response = await fetch(backendUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        recipientEmail: recipientEmailInput.value.trim(),
+                        summaryText: summaryText,
+                    }),
+                });
+
+                if (response.ok) {
+                    const responseData = await response.json();
+                    console.log('Successfully sent alert data to server:', responseData.message);
+                    results.innerHTML += `\n<span class="text-green-400">> Alerts sent successfully.</span>`;
+                } else {
+                    console.error('Server responded with an error:', response.statusText);
+                     results.innerHTML += `\n<span class="text-red-500">> Failed to send alerts. Server error. (Check console for details)</span>`;
+                }
+            } catch (error) {
+                console.error('Failed to connect to the backend server:', error);
+                 results.innerHTML += `\n<span class="text-red-500">> Failed to send alerts. Could not connect to backend. (Is it running?)</span>`;
+            }
+        }
+        // --- END NEW ---
+
+
+        // --- SCRIPT FOR PAGE 2: HASH GENERATOR ---
+        const hashAlgo = document.getElementById('hash-algo');
+        const hashTextInput = document.getElementById('hash-text-input');
+        const hashFileInput = document.getElementById('hash-file-input');
+        const generateHashBtn = document.getElementById('generate-hash-btn');
+        const hashOutput = document.getElementById('hash-output');
+        if(generateHashBtn) {
+            document.querySelectorAll('input[name="hash-input-type"]').forEach(radio => {
+                radio.addEventListener('change', e => {
+                    document.getElementById('hash-text-input-div').classList.toggle('hidden', e.target.value !== 'text');
+                    document.getElementById('hash-file-input-div').classList.toggle('hidden', e.target.value !== 'file');
+                });
+            });
+            
+            generateHashBtn.addEventListener('click', async () => {
+                const algo = hashAlgo.value === 'MD5' ? 'MD5' : `SHA-${hashAlgo.value.substring(3)}`;
+                const isText = document.getElementById('hash-text-radio').checked;
+                let data;
+                try {
+                    if (isText) {
+                        if (!hashTextInput.value) { hashOutput.textContent = 'Error: Text input is empty.'; hashOutput.classList.remove('hidden'); return; }
+                        data = new TextEncoder().encode(hashTextInput.value);
+                    } else {
+                        if (!hashFileInput.files.length) { hashOutput.textContent = 'Error: No file selected.'; hashOutput.classList.remove('hidden'); return; }
+                        data = await hashFileInput.files[0].arrayBuffer();
+                    }
+                    if (algo === 'MD5') {
+                         hashOutput.textContent = 'MD5 is considered insecure and is not supported by the standard Web Crypto API.';
+                         hashOutput.classList.remove('hidden');
+                         return;
+                    }
+                    const hashBuffer = await crypto.subtle.digest(algo, data);
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                    hashOutput.textContent = hashHex;
+                    hashOutput.classList.remove('hidden');
+                } catch (error) {
+                    hashOutput.textContent = `An error occurred: ${error.message}`;
+                    hashOutput.classList.remove('hidden');
+                }
+            });
+        }
+
+        // --- SCRIPT FOR PAGE 3: CRYPTOGRAPHY TOOL ---
+        const generateKeysBtn = document.getElementById('generate-keys-btn');
+        if(generateKeysBtn) {
+            const keyDisplay = document.getElementById('key-display');
+            const generationSuccess = document.getElementById('generation-success');
+            const publicKeyArea = document.getElementById('public-key-area');
+            const privateKeyArea = document.getElementById('private-key-area');
+            const encPubKeyInput = document.getElementById('enc-pub-key');
+            const decPrivKeyInput = document.getElementById('dec-priv-key');
+            const encryptBtn = document.getElementById('encrypt-btn');
+            const decryptBtn = document.getElementById('decrypt-btn');
+
+            generateKeysBtn.addEventListener('click', () => {
+                const crypt = new JSEncrypt({ default_key_size: 2048 });
+                const privateKey = crypt.getPrivateKey();
+                const publicKey = crypt.getPublicKey();
+                publicKeyArea.value = publicKey;
+                privateKeyArea.value = privateKey;
+                encPubKeyInput.value = publicKey;
+                decPrivKeyInput.value = privateKey;
+                keyDisplay.classList.remove('hidden');
+                generationSuccess.classList.remove('hidden');
+            });
+
+            encryptBtn.addEventListener('click', () => {
+                const crypt = new JSEncrypt();
+                crypt.setPublicKey(document.getElementById('enc-pub-key').value);
+                const encrypted = crypt.encrypt(document.getElementById('msg-to-enc').value);
+                const errorDiv = document.getElementById('encrypt-error');
+                if (encrypted) {
+                     document.getElementById('encrypted-output').value = encrypted;
+                     errorDiv.classList.add('hidden');
+                } else {
+                     document.getElementById('encrypted-output').value = '';
+                     errorDiv.textContent = 'Encryption failed. Ensure the public key is valid.';
+                     errorDiv.classList.remove('hidden');
+                }
+            });
+
+            decryptBtn.addEventListener('click', () => {
+                const crypt = new JSEncrypt();
+                crypt.setPrivateKey(document.getElementById('dec-priv-key').value);
+                const decrypted = crypt.decrypt(document.getElementById('msg-to-dec').value);
+                const successDiv = document.getElementById('decrypt-success');
+                const errorDiv = document.getElementById('decrypt-error');
+                if (decrypted) {
+                    document.getElementById('decrypted-output').value = decrypted;
+                    successDiv.textContent = 'Decryption Successful!';
+                    successDiv.classList.remove('hidden');
+                    errorDiv.classList.add('hidden');
+                } else {
+                    document.getElementById('decrypted-output').value = '';
+                    errorDiv.textContent = 'Decryption failed. Ensure the private key is correct and the message is valid.';
+                    errorDiv.classList.remove('hidden');
+                    successDiv.classList.add('hidden');
+                }
+            });
+        }
+
+        // --- SCRIPT FOR PAGE 4: PASSWORD GENERATOR ---
+        const generatePassBtn = document.getElementById('generate-pass-btn');
+        if(generatePassBtn) {
+            const passLengthSlider = document.getElementById('pass-length');
+            const passLengthVal = document.getElementById('pass-length-val');
+            passLengthSlider.addEventListener('input', () => passLengthVal.textContent = passLengthSlider.value);
+            
+            generatePassBtn.addEventListener('click', () => {
+                const length = parseInt(passLengthSlider.value);
+                const useUpper = document.getElementById('use-upper').checked;
+                const useLower = document.getElementById('use-lower').checked;
+                const useDigits = document.getElementById('use-digits').checked;
+                const useSymbols = document.getElementById('use-symbols').checked;
+                const passOutputContainer = document.getElementById('pass-output-container');
+                const passOutput = document.getElementById('pass-output');
+                const passWarning = document.getElementById('pass-warning');
+
+                const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                const lower = 'abcdefghijklmnopqrstuvwxyz';
+                const digits = '0123456789';
+                const symbols = '!@#$%^&*()_+~`|}{[]:;?><,./-=';
+                let charset = '';
+                if (useUpper) charset += upper;
+                if (useLower) charset += lower;
+                if (useDigits) charset += digits;
+                if (useSymbols) charset += symbols;
+                
+                if (!charset) {
+                    passWarning.textContent = '⚠ Please select at least one character type.';
+                    passWarning.classList.remove('hidden');
+                    passOutputContainer.classList.add('hidden');
+                    return;
+                }
+                passWarning.classList.add('hidden');
+
+                let password = '';
+                for (let i = 0; i < length; i++) {
+                    password += charset.charAt(Math.floor(Math.random() * charset.length));
+                }
+                passOutput.textContent = password;
+                passOutputContainer.classList.remove('hidden');
+            });
+        }
+
+        // --- SCRIPT FOR PAGE 5: PASSWORD CHECKER ---
+        const passwordToCheck = document.getElementById('password-to-check');
+        if(passwordToCheck) {
+            passwordToCheck.addEventListener('input', () => {
+                const password = passwordToCheck.value;
+                const resultsDiv = document.getElementById('strength-results');
+                if (!password) {
+                    resultsDiv.classList.add('hidden');
+                    return;
+                }
+                resultsDiv.classList.remove('hidden');
+
+                let score = 0;
+                const suggestions = [];
+                // Score criteria
+                if (password.length >= 12) { score += 2; } 
+                else if (password.length >= 8) { score++; }
+                if (/[a-z]/.test(password)) { score++; }
+                if (/[A-Z]/.test(password)) { score++; }
+                if (/\d/.test(password)) { score++; }
+                if (/[^A-Za-z0-9]/.test(password)) { score++; }
+
+                // Suggestion logic
+                if (password.length < 8) { suggestions.push("❌ Too short! Minimum 8 characters recommended."); }
+                else if (password.length < 12) { suggestions.push("💡 Good! Aim for 12+ characters for even better strength."); }
+                if (!/[a-z]/.test(password)) { suggestions.push("🔡 Add some lowercase letters."); }
+                if (!/[A-Z]/.test(password)) { suggestions.push("🔠 Add some uppercase letters."); }
+                if (!/\d/.test(password)) { suggestions.push("🔢 Add some numbers."); }
+                if (!/[^A-Za-z0-9]/.test(password)) { suggestions.push("💥 Add some special characters (!@#$)."); }
+
+                let strength = "";
+                let strengthColor = "";
+                if (score <= 2) { strength = "💀 Very Weak"; strengthColor = "text-red-500"; } 
+                else if (score <= 3) { strength = "⚠ Weak"; strengthColor = "text-yellow-500"; } 
+                else if (score <= 4) { strength = "✅ Good"; strengthColor = "text-blue-400"; }
+                else { strength = "🛡 Excellent"; strengthColor = "text-green-400"; }
+
+                const strengthTextEl = document.getElementById('strength-text');
+                strengthTextEl.textContent = `Strength: ${strength}`;
+                strengthTextEl.className = `font-bold text-xl text-center ${strengthColor}`;
+                
+                const suggestionsEl = document.getElementById('strength-suggestions');
+                suggestionsEl.innerHTML = '';
+                if (suggestions.length > 0 && password.length > 0) {
+                    suggestions.forEach(tip => {
+                        const p = document.createElement('p');
+                        p.textContent = tip;
+                        p.className = 'text-gray-300';
+                        suggestionsEl.appendChild(p);
+                    });
+                } else if (password.length > 0) {
+                     const p = document.createElement('p');
+                     p.innerHTML = '✅ Your password meets all the recommended criteria!';
+                     p.className = 'text-green-400 font-semibold';
+                     suggestionsEl.appendChild(p);
+                }
+            });
+        }
+        
+        // --- SCRIPT FOR PAGE 6: STEGANOGRAPHY (FIXED & IMPLEMENTED) ---
+        const hideCanvas = document.getElementById('hide-canvas');
+        if(hideCanvas) { // Check if we are on the right page
+            const revealCanvas = document.getElementById('reveal-canvas');
+            const hideFileInput = document.getElementById('hide-file-input');
+            const revealFileInput = document.getElementById('reveal-file-input');
+            const hideFileUploader = document.getElementById('hide-file-uploader');
+            const revealFileUploader = document.getElementById('reveal-file-uploader');
+            const secretMessageInput = document.getElementById('secret-message-input');
+            const hideMessageBtn = document.getElementById('hide-message-btn');
+            const revealMessageBtn = document.getElementById('reveal-message-btn');
+            const hideError = document.getElementById('hide-error');
+            const revealSuccess = document.getElementById('reveal-success');
+            const revealWarning = document.getElementById('reveal-warning');
+
+            const MESSAGE_DELIMITER = "::STEGO_END::";
+
+            const handleFileUpload = (e, canvas, btn) => {
+                const file = e.target.files[0];
+                if (file && file.type === 'image/png') {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const ctx = canvas.getContext('2d');
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            ctx.drawImage(img, 0, 0);
+                            btn.disabled = false;
+                        };
+                        img.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    alert('Please select a valid PNG file.');
+                    btn.disabled = true;
+                }
+            };
+            
+            hideFileInput.addEventListener('change', (e) => handleFileUpload(e, hideCanvas, hideMessageBtn));
+            revealFileInput.addEventListener('change', (e) => handleFileUpload(e, revealCanvas, revealMessageBtn));
+            
+            // Drag and Drop functionality
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                hideFileUploader.addEventListener(eventName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+                revealFileUploader.addEventListener(eventName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
+            ['dragenter', 'dragover'].forEach(eventName => {
+                hideFileUploader.addEventListener(eventName, () => hideFileUploader.classList.add('dragover'));
+                revealFileUploader.addEventListener(eventName, () => revealFileUploader.classList.add('dragover'));
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                hideFileUploader.addEventListener(eventName, () => hideFileUploader.classList.remove('dragover'));
+                revealFileUploader.addEventListener(eventName, () => revealFileUploader.classList.remove('dragover'));
+            });
+
+            hideFileUploader.addEventListener('drop', (e) => {
+                hideFileInput.files = e.dataTransfer.files;
+                handleFileUpload({ target: hideFileInput }, hideCanvas, hideMessageBtn);
+            });
+             revealFileUploader.addEventListener('drop', (e) => {
+                revealFileInput.files = e.dataTransfer.files;
+                handleFileUpload({ target: revealFileInput }, revealCanvas, revealMessageBtn);
+            });
+            
+            hideMessageBtn.addEventListener('click', () => {
+                const message = secretMessageInput.value;
+                if (!message) {
+                    hideError.textContent = 'Please enter a message to hide.';
+                    hideError.classList.remove('hidden');
+                    return;
+                }
+                
+                const messageWithDelimiter = message + MESSAGE_DELIMITER;
+                let messageInBinary = '';
+                for (let i = 0; i < messageWithDelimiter.length; i++) {
+                    messageInBinary += messageWithDelimiter[i].charCodeAt(0).toString(2).padStart(8, '0');
+                }
+
+                const ctx = hideCanvas.getContext('2d');
+                const imageData = ctx.getImageData(0, 0, hideCanvas.width, hideCanvas.height);
+                const data = imageData.data; // [R, G, B, A, R, G, B, A, ...]
+
+                if (messageInBinary.length > data.length / 4 * 3) {
+                     hideError.textContent = 'Message is too long for this image.';
+                     hideError.classList.remove('hidden');
+                     return;
+                }
+                
+                let dataIndex = 0;
+                for(let i = 0; i < messageInBinary.length; i++) {
+                    const bit = parseInt(messageInBinary[i]);
+                    // Skip alpha channels
+                    if ((dataIndex + 1) % 4 === 0) {
+                        dataIndex++;
+                    }
+                    // Modify the LSB of the color channel
+                    data[dataIndex] = (data[dataIndex] & 0xFE) | bit;
+                    dataIndex++;
+                }
+                
+                ctx.putImageData(imageData, 0, 0);
+
+                // Create download link
+                const link = document.createElement('a');
+                link.download = 'stego-image.png';
+                link.href = hideCanvas.toDataURL('image/png');
+                link.click();
+                hideError.classList.add('hidden');
+            });
+            
+            revealMessageBtn.addEventListener('click', () => {
+                const ctx = revealCanvas.getContext('2d');
+                const imageData = ctx.getImageData(0, 0, revealCanvas.width, revealCanvas.height);
+                const data = imageData.data;
+                
+                let binaryMessage = '';
+                let charCode = '';
+                let revealedMessage = '';
+
+                for (let i = 0; i < data.length; i++) {
+                    if ((i + 1) % 4 === 0) continue; // Skip alpha channel
+                    
+                    binaryMessage += (data[i] & 1).toString();
+                    
+                    if (binaryMessage.length === 8) {
+                        const char = String.fromCharCode(parseInt(binaryMessage, 2));
+                        revealedMessage += char;
+                        
+                        // Check for delimiter
+                        if (revealedMessage.endsWith(MESSAGE_DELIMITER)) {
+                            const finalMessage = revealedMessage.slice(0, -MESSAGE_DELIMITER.length);
+                            revealSuccess.innerHTML = `<strong>Hidden Message Found:</strong><br><pre class="mt-2 whitespace-pre-wrap">${finalMessage}</pre>`;
+                            revealSuccess.classList.remove('hidden');
+                            revealWarning.classList.add('hidden');
+                            return; // Stop processing
+                        }
+                        binaryMessage = '';
+                    }
+                }
+                
+                // If loop finishes without finding delimiter
+                revealWarning.textContent = '⚠ No valid hidden message found in this image.';
+                revealWarning.classList.remove('hidden');
+                revealSuccess.classList.add('hidden');
+            });
+        }
+    });
+    </script>
+</body>
+</html>
