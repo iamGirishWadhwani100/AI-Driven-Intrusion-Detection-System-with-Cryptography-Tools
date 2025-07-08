@@ -179,7 +179,7 @@
                         <section id="scanner">
                             <h2 class="text-lg font-semibold mb-3 text-gray-200">Target Network</h2>
                             <div class="flex flex-col gap-4">
-                                <input type="text" id="ip-address" value="192.168.1.0/24" class="flex-grow bg-gray-800 border border-gray-600 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-200">
+                                <input type="text" id="ip-address" value="192.168.1.1" placeholder="Enter specific IPv4 or IPv6 (e.g., 192.168.1.1 or 2001:0db8::1)" class="flex-grow bg-gray-800 border border-gray-600 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-200">
                                  <input type="email" id="recipient-email" placeholder="Email for alerts (e.g., admin@example.com)" class="flex-grow bg-gray-800 border border-gray-600 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-200">
                                 <button id="scanButton" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-md transition duration-300 ease-in-out transform hover:scale-105 disabled:bg-gray-500 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2">
                                     <i class="ph ph-target"></i>
@@ -398,12 +398,16 @@
         }
 
         function startScan() {
-            const networkRange = ipAddressInput.value.trim();
+            const targetIp = ipAddressInput.value.trim(); // Changed from networkRange to targetIp
             const email = recipientEmailInput.value.trim();
 
-            const cidrRegex = /^([0-9]{1,3}\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))$/;
-            if (!cidrRegex.test(networkRange)) {
-                resultsDiv.innerHTML = `<span class="text-red-500">Error: Invalid CIDR notation. Please use format like 192.168.1.0/24.</span>`;
+            // Updated regex to validate both IPv4 and IPv6 addresses
+            const ipv4Regex = /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+            // Basic IPv6 regex (more comprehensive regex can be very long, this covers common formats)
+            const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^((([0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4})?::([0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4})?$/;
+
+            if (!ipv4Regex.test(targetIp) && !ipv6Regex.test(targetIp)) {
+                resultsDiv.innerHTML = `<span class="text-red-500">Error: Invalid IP address. Please use a valid IPv4 (e.g., 192.168.1.1) or IPv6 (e.g., 2001:0db8::1) address.</span>`;
                 return;
             }
             // Basic email validation
@@ -417,10 +421,10 @@
             scanButton.innerHTML = '<i class="ph ph-spinner-gap animate-spin"></i> Analyzing...';
             cursor.classList.remove('hidden');
             summarySection.classList.add('hidden');
-            simulateSystemScan(networkRange);
+            simulateSystemScan(targetIp); // Pass the single IP
         }
 
-        async function simulateSystemScan(networkRange) {
+        async function simulateSystemScan(targetIp) { // Changed from networkRange to targetIp
             const resultsContainer = document.getElementById('results-container');
             let totalRiskScore = 0;
             let criticalThreatsCount = 0;
@@ -437,15 +441,15 @@
                 });
             };
 
-            await addLine(`<span class="text-cyan-400">> AI Engine Initialized. Target: ${networkRange}</span>`);
-            await addLine(`<span class="text-gray-500">> Phase 1: Host Discovery using ARP & ICMP sweeps...</span>`, 1000);
+            await addLine(`<span class="text-cyan-400">> AI Engine Initialized. Target: ${targetIp}</span>`); // Changed to targetIp
+            await addLine(`<span class="text-gray-500">> Phase 1: Host Discovery for single IP...</span>`, 1000);
             
-            const baseIp = networkRange.split('/')[0].split('.').slice(0, 3).join('.');
-            const discoveredHosts = Array.from({length: Math.floor(Math.random() * 3) + 3}, () => ({ip: `${baseIp}.${Math.floor(Math.random() * 254) + 1}`, riskScore: 0, criticalThreats: 0}));
+            // Removed random host discovery logic
+            const discoveredHosts = [{ip: targetIp, riskScore: 0, criticalThreats: 0}]; // Directly use the target IP
 
-            await addLine(`<span class="text-green-400">> Discovery Complete. Found ${discoveredHosts.length} active hosts.</span>`);
+            await addLine(`<span class="text-green-400">> Discovery Complete. Analyzing 1 active host.</span>`); // Updated message
 
-            for (const host of discoveredHosts) {
+            for (const host of discoveredHosts) { // Loop will now only run once for the single host
                 await addLine(`\n<span class="text-cyan-400">--- Analyzing Host: ${host.ip} ---</span>`);
                 const { hostRisk, criticalCount } = await analyzeHost(host, addLine);
                 host.riskScore = hostRisk;
@@ -556,7 +560,7 @@
         async function sendAlertsToServer(summary) {
             // This is the URL where your backend server is running.
             // You MUST replace this with your actual server URL.
-            const backendUrl = 'https://ai-driven-intrusion-detection-syste.vercel.app/send-alert'; // Example: 'https://your-backend.onrender.com/send-alert'
+            const backendUrl = 'http://localhost:3000/send-alert'; // Example: 'https://your-backend.onrender.com/send-alert'
 
             const summaryText = `
                 Scan Complete
