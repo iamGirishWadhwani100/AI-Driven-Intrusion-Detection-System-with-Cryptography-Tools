@@ -939,7 +939,7 @@
         }
         
         async function sendAlertsToServer(summary, addLine) {
-            const backendUrl = 'http://localhost:3000/send-alert';
+            const backendUrl = 'http://https://ai-driven-intrusion-detection-syste.vercel.app/send-alert';
             const summaryText = `Cyber Suite Scan Report: Network Posture: ${summary.networkPosture}, Critical Threats: ${summary.criticalThreats}, Avg Risk: ${summary.averageRisk}`;
 
             try {
